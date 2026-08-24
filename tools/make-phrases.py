@@ -48,7 +48,7 @@ PHRASES = [
     ("goodbye", "Thanks for playing. Goodbye."),
     ("miss", "Miss."),
     ("hit", "Hit!"),
-    ("sank", "Hit! You sank my ship!"),
+    ("sank", "Hit! You sank the enemy's ship!"),
     ("they-hit", "They hit your ship."),
     ("they-sank", "They sank your ship!"),
     ("win", "You sank the entire enemy fleet! Every last ship is at the bottom of the ocean. Victory! Thanks for playing BattleFone."),

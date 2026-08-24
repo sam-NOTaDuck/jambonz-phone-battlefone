@@ -162,7 +162,7 @@ function computeAudioBase(req?: http.IncomingMessage): string | null {
 const AUDIO_BASE_URL = 'https://platypus-jambonz-bucket.s3.amazonaws.com/audio/battlefone';
 // Bump when regenerating clips: jambonz caches played URLs platform-side, so a
 // stale cache can serve old audio (heard 2026-08-24: old voice after regen).
-const AUDIO_VERSION = 3;
+const AUDIO_VERSION = 4;
 
 function getAudioUrl(_game: GameState, filename: string): string | null {
   try {
@@ -193,7 +193,7 @@ const PHRASE_CLIPS: Record<string, string> = {
   'Thanks for playing. Goodbye.': 'goodbye',
   'Miss.': 'miss',
   'Hit!': 'hit',
-  'Hit! You sank my ship!': 'sank',
+  'Hit! You sank the enemy\'s ship!': 'sank',
   'They hit your ship.': 'they-hit',
   'They sank your ship!': 'they-sank',
   'You sank the entire enemy fleet! Every last ship is at the bottom of the ocean. Victory! Thanks for playing BattleFone.': 'win',
@@ -400,7 +400,7 @@ function startRound(session: Session, game: GameState, sayFirst?: string): void 
 function pushPlayerResult(session: Session, game: GameState, result: ShotResult): void {
   const clip = result.sunkShipId !== null ? 'sink.mp3' : result.hit ? 'explosion.mp3' : 'sonar.mp3';
   const phrase =
-    result.sunkShipId !== null ? 'Hit! You sank my ship!' : result.hit ? 'Hit!' : 'Miss.';
+    result.sunkShipId !== null ? 'Hit! You sank the enemy\'s ship!' : result.hit ? 'Hit!' : 'Miss.';
   // Sound first, then the words — new players need the narration, not just the clip.
   const url = getAudioUrl(game, clip);
   if (url) {
