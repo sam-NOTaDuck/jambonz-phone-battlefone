@@ -154,6 +154,11 @@ the WebSocket upgrade request (`https` if the socket is TLS-encrypted, otherwise
 `http(s)://<your-app-host>/audio/<filename>`. If a clip file is absent, the app
 falls back to the TTS phrasing above. With no clips present the game is fully TTS.
 
+**Regenerating the kit:** `tools/make-sfx.py` (pure numpy synthesis + ffmpeg)
+rebuilds all six clips — `python3 tools/make-sfx.py` with a numpy venv, then
+`systemctl --user restart battlefone` is NOT needed (clips are checked per call;
+just drop the files in `data/audio/`).
+
 ## Architecture notes
 
 - **App-only voice.** No `conference` or `room` verb; the app TTS is the only voice.
