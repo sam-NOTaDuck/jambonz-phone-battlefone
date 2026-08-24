@@ -373,23 +373,20 @@ function finishGame(session: Session, game: GameState, outcome: 'win' | 'lose'):
   console.log(`[bf] game ${game.id} over: ${outcome}`);
   games.delete(game.id);
 
-  if (outcome === 'win') {
-    pushAudioOrTts(
-      session,
-      game,
-      'win.mp3',
-      'You sank the entire enemy fleet! Victory! Thanks for playing BattleFone.',
-    );
-  } else {
-    pushAudioOrTts(
-      session,
-      game,
-      'lose.mp3',
-      'Your fleet has been destroyed. The enemy wins. Thanks for playing BattleFone.',
-    );
-  }
+  const clip = outcome === 'win' ? 'win.mp3' : 'lose.mp3';
+  const announcement =
+    outcome === 'win'
+      ? 'You sank the entire enemy fleet! Every last ship is at the bottom of the ocean. Victory! Thanks for playing BattleFone.'
+      : 'All of your ships have been sunk. The enemy fleet claims victory. Thanks for playing BattleFone.';
 
-  session
+  // Play the clip (if present), THEN speak the announcement, then offer a rematch.
+  let chain = session;
+  const url = getAudioUrl(game, clip);
+  if (url) {
+    chain = session.play({ url });
+  }
+  chain
+    .say({ text: announcement })
     .gather({
       input: ['digits'],
       numDigits: 1,
