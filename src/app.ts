@@ -398,7 +398,7 @@ function startRound(session: Session, game: GameState, sayFirst?: string): void 
 function pushPlayerResult(session: Session, game: GameState, result: ShotResult): void {
   const clip = result.sunkShipId !== null ? 'sink.mp3' : result.hit ? 'explosion.mp3' : 'sonar.mp3';
   const phrase =
-    result.sunkShipId !== null ? 'Hit! You sank my battleship!' : result.hit ? 'Hit!' : 'Miss.';
+    result.sunkShipId !== null ? 'Hit! You sank my ship!' : result.hit ? 'Hit!' : 'Miss.';
   // Sound first, then the words — new players need the narration, not just the clip.
   const url = getAudioUrl(game, clip);
   if (url) {
@@ -411,7 +411,7 @@ function pushAiResult(session: Session, game: GameState, result: ShotResult): vo
   const clip = result.sunkShipId !== null ? 'sink.mp3' : result.hit ? 'explosion.mp3' : 'sonar.mp3';
   const phrase =
     result.sunkShipId !== null
-      ? 'They sank your battleship!'
+      ? 'They sank your ship!'
       : result.hit
         ? 'They hit your ship.'
         : 'Miss.';
@@ -663,6 +663,17 @@ server.on('error', (err) => {
 
 server.on('listening', () => {
   console.log(`BattleFone listening on port ${PORT}`);
+  // Boot-time phrase-bank audit: every mapped phrase must have a clip, or it
+  // silently falls back to live TTS (the "different voice" bug class hit 2026-08-24).
+  const missing = Object.values(PHRASE_CLIPS).filter((slug) => {
+    const p = path.join(AUDIO_DIR, 'tts', `${slug}.mp3`);
+    return !(fs.existsSync(p) && fs.statSync(p).isFile());
+  });
+  if (missing.length) {
+    console.error(`[bf] PHRASE BANK MISSING ${missing.length} clips: ${missing.join(', ')}`);
+  } else {
+    console.log(`[bf] phrase bank OK: ${Object.keys(PHRASE_CLIPS).length} phrases, all clips present`);
+  }
 });
 
 const makeService = createEndpoint({ server, port: PORT, envVars: {} });
