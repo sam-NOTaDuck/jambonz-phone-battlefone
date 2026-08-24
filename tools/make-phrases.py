@@ -15,7 +15,7 @@ import subprocess
 import urllib.request
 import urllib.error
 
-VOICE = "SOYHLrjzK2X1ezoPC6cr"  # Harry - Fierce Warrior (premade = free plan)
+VOICE = "pNInz6obpgDQGcFmaJgB"  # Adam - Dominant, Firm (premade = free plan)
 MODEL = "eleven_flash_v2_5"
 API = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE}"
 
@@ -48,9 +48,9 @@ PHRASES = [
     ("goodbye", "Thanks for playing. Goodbye."),
     ("miss", "Miss."),
     ("hit", "Hit!"),
-    ("sank", "Hit! You sank my battleship!"),
+    ("sank", "Hit! You sank my ship!"),
     ("they-hit", "They hit your ship."),
-    ("they-sank", "They sank your battleship!"),
+    ("they-sank", "They sank your ship!"),
     ("win", "You sank the entire enemy fleet! Every last ship is at the bottom of the ocean. Victory! Thanks for playing BattleFone."),
     ("lose", "All of your ships have been sunk. The enemy fleet claims victory. Thanks for playing BattleFone."),
     # fleet variants

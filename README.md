@@ -143,7 +143,7 @@ The app checks `data/audio/` for optional clips:
 | `sting.mp3`   | Played first on the welcome prompt         | (none; then welcome TTS)                  |
 | `sonar.mp3`   | Miss                                       | "Miss."                                   |
 | `explosion.mp3` | Hit                                      | "Hit!" / "They hit your ship."            |
-| `sink.mp3`    | Sink                                       | "Hit! You sank my battleship!" / "They sank your battleship!" |
+| `sink.mp3`    | Sink                                       | "Hit! You sank my ship!" / "They sank your ship!" |
 | `win.mp3`     | Victory                                    | "You sank the entire enemy fleet! Victory! Thanks for playing BattleFone." |
 | `lose.mp3`    | Defeat                                     | "Your fleet has been destroyed. The enemy wins. Thanks for playing BattleFone." |
 
