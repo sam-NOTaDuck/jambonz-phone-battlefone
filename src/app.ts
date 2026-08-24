@@ -171,15 +171,6 @@ function getAudioUrl(_game: GameState, filename: string): string | null {
   }
 }
 
-function pushAudioOrTts(session: Session, game: GameState, filename: string, ttsText: string): void {
-  const url = getAudioUrl(game, filename);
-  if (url) {
-    session.play({ url });
-  } else {
-    session.say({ text: ttsText });
-  }
-}
-
 // ---------------------------------------------------------------------------
 // HTTP handler (also serves data/audio on the same port)
 // ---------------------------------------------------------------------------
@@ -344,23 +335,32 @@ function startRound(session: Session, game: GameState, sayFirst?: string): void 
 }
 
 function pushPlayerResult(session: Session, game: GameState, result: ShotResult): void {
-  if (result.sunkShipId !== null) {
-    pushAudioOrTts(session, game, 'sink.mp3', 'Hit! You sank my battleship!');
-  } else if (result.hit) {
-    pushAudioOrTts(session, game, 'explosion.mp3', 'Hit!');
-  } else {
-    pushAudioOrTts(session, game, 'sonar.mp3', 'Miss.');
+  const clip = result.sunkShipId !== null ? 'sink.mp3' : result.hit ? 'explosion.mp3' : 'sonar.mp3';
+  const phrase =
+    result.sunkShipId !== null ? 'Hit! You sank my battleship!' : result.hit ? 'Hit!' : 'Miss.';
+  // Sound first, then the words — new players need the narration, not just the clip.
+  const url = getAudioUrl(game, clip);
+  let chain = session;
+  if (url) {
+    chain = session.play({ url });
   }
+  chain.say({ text: phrase });
 }
 
 function pushAiResult(session: Session, game: GameState, result: ShotResult): void {
-  if (result.sunkShipId !== null) {
-    pushAudioOrTts(session, game, 'sink.mp3', 'They sank your battleship!');
-  } else if (result.hit) {
-    pushAudioOrTts(session, game, 'explosion.mp3', 'They hit your ship.');
-  } else {
-    pushAudioOrTts(session, game, 'sonar.mp3', 'Miss.');
+  const clip = result.sunkShipId !== null ? 'sink.mp3' : result.hit ? 'explosion.mp3' : 'sonar.mp3';
+  const phrase =
+    result.sunkShipId !== null
+      ? 'They sank your battleship!'
+      : result.hit
+        ? 'They hit your ship.'
+        : 'Miss.';
+  const url = getAudioUrl(game, clip);
+  let chain = session;
+  if (url) {
+    chain = session.play({ url });
   }
+  chain.say({ text: phrase });
 }
 
 function shotName(result: ShotResult): 'miss' | 'hit' | 'sink' {
