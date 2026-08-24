@@ -172,6 +172,63 @@ function getAudioUrl(_game: GameState, filename: string): string | null {
 }
 
 // ---------------------------------------------------------------------------
+// Phrase bank — every narration phrase is pre-generated as an audio clip
+// (data/audio/tts/, mirrored to S3) so the game never relies on live TTS.
+// Live TTS remains only as a fallback for unmapped phrases.
+// ---------------------------------------------------------------------------
+
+const PHRASE_CLIPS: Record<string, string> = {
+  'Welcome to BattleFone. Press 1 for instant action, or 5 for options.': 'welcome',
+  'Press 1 for instant action, or 5 for options.': 'menu',
+  'How many ships? Press 1, 2, or 3.': 'ship-count',
+  'Ship sizes. Press 1 for all one-cell ships. Press 2 for one two-cell ship and the rest one-cell. Press 3 for random sizes.': 'ship-sizes',
+  'Fleet saved.': 'fleet-saved',
+  'Press star to play again. Press pound for the main menu.': 'rematch',
+  'Still your turn. Target a cell: zero through nine.': 'still-turn',
+  'Your turn. Target a cell: zero through nine.': 'your-turn',
+  'Enemy firing.': 'enemy-firing',
+  'Thanks for playing. Goodbye.': 'goodbye',
+  'Miss.': 'miss',
+  'Hit!': 'hit',
+  'Hit! You sank my battleship!': 'sank',
+  'They hit your ship.': 'they-hit',
+  'They sank your battleship!': 'they-sank',
+  'You sank the entire enemy fleet! Every last ship is at the bottom of the ocean. Victory! Thanks for playing BattleFone.': 'win',
+  'All of your ships have been sunk. The enemy fleet claims victory. Thanks for playing BattleFone.': 'lose',
+  'Your fleet is set. Enemy fleet: 1 ship. Fire when ready. Your turn. Target a cell: zero through nine.': 'fleet-set-1',
+  'Your fleet is set. Enemy fleet: 2 ships. Fire when ready. Your turn. Target a cell: zero through nine.': 'fleet-set-2',
+  'Your fleet is set. Enemy fleet: 3 ships. Fire when ready. Your turn. Target a cell: zero through nine.': 'fleet-set-3',
+  'Enemy fleet: 1 ship remaining.': 'fleet-remaining-1',
+  'Enemy fleet: 2 ships remaining.': 'fleet-remaining-2',
+  'Enemy fleet: 3 ships remaining.': 'fleet-remaining-3',
+};
+for (const w of ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']) {
+  PHRASE_CLIPS[`Shot on ${w}.`] = `shot-on-${w}`;
+  PHRASE_CLIPS[`Enemy fired on ${w}.`] = `enemy-fired-${w}`;
+  PHRASE_CLIPS[`You already fired at ${w}. Pick a new target.`] = `already-fired-${w}`;
+}
+
+/** Fluent: play the pre-generated clip for this phrase, or fall back to live TTS. */
+function speak(session: Session, game: GameState, text: string): Session {
+  const slug = PHRASE_CLIPS[text];
+  if (slug) {
+    const url = getAudioUrl(game, `tts/${slug}.mp3`);
+    if (url) return session.play({ url });
+  }
+  return session.say({ text });
+}
+
+/** Build the say/play option for a gather prompt (clips preferred, TTS fallback). */
+function sayOrPlayOption(game: GameState, text: string): { say?: { text: string }; play?: { url: string } } {
+  const slug = PHRASE_CLIPS[text];
+  if (slug) {
+    const url = getAudioUrl(game, `tts/${slug}.mp3`);
+    if (url) return { play: { url } };
+  }
+  return { say: { text } };
+}
+
+// ---------------------------------------------------------------------------
 // HTTP handler (also serves data/audio on the same port)
 // ---------------------------------------------------------------------------
 
@@ -249,42 +306,41 @@ function installHttpHandler(server: http.Server): void {
 // Prompts / game flow helpers
 // ---------------------------------------------------------------------------
 
-function sendMenuPrompt(session: Session): void {
+function sendMenuPrompt(session: Session, game: GameState): void {
   session
     .gather({
       input: ['digits'],
       numDigits: 1,
       timeout: 15,
       actionHook: '/menu',
-      say: { text: 'Press 1 for instant action, or 5 for options.' },
+      ...sayOrPlayOption(game, 'Press 1 for instant action, or 5 for options.'),
     })
     .reply();
 }
 
-function askShipCount(session: Session): void {
+function askShipCount(session: Session, game: GameState): void {
   session
     .gather({
       input: ['digits'],
       numDigits: 1,
       timeout: 15,
       actionHook: '/options-count',
-      say: { text: 'How many ships? Press 1, 2, or 3.' },
+      ...sayOrPlayOption(game, 'How many ships? Press 1, 2, or 3.'),
     })
     .reply();
 }
 
-function askShipSizes(session: Session): void {
+function askShipSizes(session: Session, game: GameState): void {
   session
     .gather({
       input: ['digits'],
       numDigits: 1,
       timeout: 15,
       actionHook: '/options-sizes',
-      say: {
-        text:
-          'Ship sizes. Press 1 for all one-cell ships. Press 2 for one two-cell ship ' +
-          'and the rest one-cell. Press 3 for random sizes.',
-      },
+      ...sayOrPlayOption(
+        game,
+        'Ship sizes. Press 1 for all one-cell ships. Press 2 for one two-cell ship and the rest one-cell. Press 3 for random sizes.',
+      ),
     })
     .reply();
 }
@@ -310,18 +366,20 @@ function startRound(session: Session, game: GameState, sayFirst?: string): void 
     game.rounds += 1;
 
     if (sayFirst) {
-      session.say({ text: sayFirst });
+      speak(session, game, sayFirst);
     }
+    const fleetWord = sizes.length === 1 ? 'ship' : 'ships';
     session
       .gather({
         input: ['digits'],
         numDigits: 1,
         timeout: 15,
         actionHook: '/fire',
-        say: {
-          text: `Your fleet is set. Enemy fleet: ${sizes.length} ships. Fire when ready. ` +
+        ...sayOrPlayOption(
+          game,
+          `Your fleet is set. Enemy fleet: ${sizes.length} ${fleetWord}. Fire when ready. ` +
             'Your turn. Target a cell: zero through nine.',
-        },
+        ),
       })
       .reply();
   } catch (err) {
@@ -340,11 +398,10 @@ function pushPlayerResult(session: Session, game: GameState, result: ShotResult)
     result.sunkShipId !== null ? 'Hit! You sank my battleship!' : result.hit ? 'Hit!' : 'Miss.';
   // Sound first, then the words — new players need the narration, not just the clip.
   const url = getAudioUrl(game, clip);
-  let chain = session;
   if (url) {
-    chain = session.play({ url });
+    session.play({ url });
   }
-  chain.say({ text: phrase });
+  speak(session, game, phrase);
 }
 
 function pushAiResult(session: Session, game: GameState, result: ShotResult): void {
@@ -356,11 +413,10 @@ function pushAiResult(session: Session, game: GameState, result: ShotResult): vo
         ? 'They hit your ship.'
         : 'Miss.';
   const url = getAudioUrl(game, clip);
-  let chain = session;
   if (url) {
-    chain = session.play({ url });
+    session.play({ url });
   }
-  chain.say({ text: phrase });
+  speak(session, game, phrase);
 }
 
 function shotName(result: ShotResult): 'miss' | 'hit' | 'sink' {
@@ -380,19 +436,19 @@ function finishGame(session: Session, game: GameState, outcome: 'win' | 'lose'):
       : 'All of your ships have been sunk. The enemy fleet claims victory. Thanks for playing BattleFone.';
 
   // Play the clip (if present), THEN speak the announcement, then offer a rematch.
-  let chain = session;
   const url = getAudioUrl(game, clip);
+  let chain = session;
   if (url) {
     chain = session.play({ url });
   }
+  chain = speak(chain, game, announcement);
   chain
-    .say({ text: announcement })
     .gather({
       input: ['digits'],
       numDigits: 1,
       timeout: 15,
       actionHook: '/again',
-      say: { text: 'Press star to play again. Press pound for the main menu.' },
+      ...sayOrPlayOption(game, 'Press star to play again. Press pound for the main menu.'),
     })
     .reply();
 }
@@ -400,7 +456,7 @@ function finishGame(session: Session, game: GameState, outcome: 'win' | 'lose'):
 function enterMenu(session: Session, game: GameState): void {
   game.phase = 'menu';
   games.set(game.id, game);
-  sendMenuPrompt(session);
+  sendMenuPrompt(session, game);
 }
 
 // ---------------------------------------------------------------------------
@@ -415,11 +471,11 @@ function handleMenu(session: Session, game: GameState, evt: GatherEvent): void {
       return;
     }
     if (evt.digits === '5') {
-      askShipCount(session);
+      askShipCount(session, game);
       return;
     }
     // Timeout or any other digit re-prompts.
-    sendMenuPrompt(session);
+    sendMenuPrompt(session, game);
   } catch (err) {
     console.error('[bf] menu handler error:', err);
     try {
@@ -434,10 +490,10 @@ function handleOptionsCount(session: Session, game: GameState, evt: GatherEvent)
   try {
     if (evt.digits === '1' || evt.digits === '2' || evt.digits === '3') {
       game.shipCount = parseInt(evt.digits, 10);
-      askShipSizes(session);
+      askShipSizes(session, game);
       return;
     }
-    askShipCount(session);
+    askShipCount(session, game);
   } catch (err) {
     console.error('[bf] options-count handler error:', err);
     try {
@@ -457,7 +513,7 @@ function handleOptionsSizes(session: Session, game: GameState, evt: GatherEvent)
     } else if (evt.digits === '3') {
       game.twoCellCount = 'random';
     } else {
-      askShipSizes(session);
+      askShipSizes(session, game);
       return;
     }
 
@@ -484,7 +540,7 @@ function handleFire(session: Session, game: GameState, evt: GatherEvent): void {
           numDigits: 1,
           timeout: 15,
           actionHook: '/fire',
-          say: { text: 'Still your turn. Target a cell: zero through nine.' },
+          ...sayOrPlayOption(game, 'Still your turn. Target a cell: zero through nine.'),
         })
         .reply();
       return;
@@ -499,7 +555,7 @@ function handleFire(session: Session, game: GameState, evt: GatherEvent): void {
           numDigits: 1,
           timeout: 15,
           actionHook: '/fire',
-          say: { text: `You already fired at ${spokenNumber(digit)}. Pick a new target.` },
+          ...sayOrPlayOption(game, `You already fired at ${spokenNumber(digit)}. Pick a new target.`),
         })
         .reply();
       return;
@@ -508,17 +564,22 @@ function handleFire(session: Session, game: GameState, evt: GatherEvent): void {
     const result = applyShot(game.enemyBoard, game.enemyFleet, digit);
     console.log(`[bf] shot ${digit} -> ${shotName(result)}`);
 
-    session.say({ text: `Shot on ${spokenNumber(digit)}.` });
+    speak(session, game, `Shot on ${spokenNumber(digit)}.`);
     pushPlayerResult(session, game, result);
-    session.say({ text: `Enemy fleet: ${fleetRemaining(game.enemyFleet)} ships remaining.` });
+    const enemyRemaining = fleetRemaining(game.enemyFleet);
+    speak(
+      session,
+      game,
+      `Enemy fleet: ${enemyRemaining} ${enemyRemaining === 1 ? 'ship' : 'ships'} remaining.`,
+    );
 
-    if (fleetRemaining(game.enemyFleet) === 0) {
+    if (enemyRemaining === 0) {
       finishGame(session, game, 'win');
       return;
     }
 
     // AI's turn.
-    session.say({ text: 'Enemy firing.' });
+    speak(session, game, 'Enemy firing.');
     session.pause({ length: 1 + Math.random() });
 
     const aiDigit = chooseAiTarget(game.playerFleet, game.ai);
@@ -536,7 +597,7 @@ function handleFire(session: Session, game: GameState, evt: GatherEvent): void {
     updateAiTarget(game.ai, game.playerFleet, aiDigit, aiResult.hit, aiResult.sunkShipId);
     console.log(`[bf] ai shot ${aiDigit} -> ${shotName(aiResult)}`);
 
-    session.say({ text: `Enemy fired on ${spokenNumber(aiDigit)}.` });
+    speak(session, game, `Enemy fired on ${spokenNumber(aiDigit)}.`);
     pushAiResult(session, game, aiResult);
 
     if (fleetRemaining(game.playerFleet) === 0) {
@@ -550,7 +611,7 @@ function handleFire(session: Session, game: GameState, evt: GatherEvent): void {
         numDigits: 1,
         timeout: 15,
         actionHook: '/fire',
-        say: { text: 'Your turn. Target a cell: zero through nine.' },
+        ...sayOrPlayOption(game, 'Your turn. Target a cell: zero through nine.'),
       })
       .reply();
   } catch (err) {
@@ -575,7 +636,7 @@ function handleAgain(session: Session, game: GameState, evt: GatherEvent): void 
       return;
     }
     // Timeout (or any other key) ends the call.
-    session.say({ text: 'Thanks for playing. Goodbye.' }).hangup().reply();
+    speak(session, game, 'Thanks for playing. Goodbye.').hangup().reply();
   } catch (err) {
     console.error('[bf] again handler error:', err);
     try {
@@ -657,7 +718,7 @@ svc.on('session:new', (session, _path, req) => {
         numDigits: 1,
         timeout: 15,
         actionHook: '/menu',
-        say: { text: 'Welcome to BattleFone. Press 1 for instant action, or 5 for options.' },
+        ...sayOrPlayOption(game, 'Welcome to BattleFone. Press 1 for instant action, or 5 for options.'),
       })
       .send();
   } catch (err) {
