@@ -29,14 +29,14 @@ def env_exp(n, tau):
 
 
 def one_pole_lowpass(x, fc, fs=SR):
-    """One-pole lowpass with a (possibly time-varying) cutoff array."""
+    """One-pole lowpass with a (possibly time-varying) cutoff array.
+    y[i] = y[i-1] + a[i] * (x[i] - y[i-1])  — the standard form."""
     a = 1.0 - np.exp(-2.0 * math.pi * np.asarray(fc, dtype=float) / fs)
     y = np.empty_like(x)
     acc = 0.0
     for i in range(len(x)):
-        acc += a[i] if np.ndim(a) else a
+        acc += a[i] * (x[i] - acc)
         y[i] = acc
-        acc -= a[i] * x[i] if np.ndim(a) else a * x[i]
     return y
 
 
@@ -134,12 +134,14 @@ def write_wav(path, x, normalize=0.95):
 def to_mp3(name, x):
     wav_path = f"/tmp/sfx_{name}.wav"
     mp3_path = os.path.join(OUT, f"{name}.mp3")
+    rms = float(np.sqrt(np.mean(np.asarray(x, dtype=float) ** 2)))
+    peak = float(np.max(np.abs(x)))
     write_wav(wav_path, x)
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-i", wav_path, "-codec:a", "libmp3lame", "-q:a", "4", mp3_path],
         check=True,
     )
-    print(f"  {name}.mp3  {os.path.getsize(mp3_path)/1024:.0f} KB")
+    print(f"  {name}.mp3  {os.path.getsize(mp3_path)/1024:.0f} KB  rms={rms:.3f}  peak={peak:.2f}")
 
 
 def mix(*tracks, total=None):
