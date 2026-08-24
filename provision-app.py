@@ -76,7 +76,17 @@ call("PUT", f"/v1/Applications/{app_sid}", {"call_hook": {"url": WS_URL, "method
 print("✅ wss:// confirmed")
 
 print("🔧 Registering phone number...")
-num = call("POST", "/v1/PhoneNumbers", {"number": NUMBER, "application_sid": app_sid})
+num = call(
+    "POST",
+    "/v1/PhoneNumbers",
+    {
+        "number": NUMBER,
+        # REQUIRED: without the carrier, jambonz cannot match inbound calls
+        # to this number and rejects them. Same trunk as TTF/Call Snare.
+        "voip_carrier_sid": "d0311e59-b3cd-43c8-9319-82e402e7ff6e",
+        "application_sid": app_sid,
+    },
+)
 print(f"✅ PhoneNumber: {num.get('sid')}")
 
 verify = call("GET", f"/v1/Applications/{app_sid}")
