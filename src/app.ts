@@ -160,12 +160,15 @@ function computeAudioBase(req?: http.IncomingMessage): string | null {
 // Public bucket where all jambonz audio clips live (alert, Call Snare greetings,
 // BattleFone). Kept in S3 so audio doesn't depend on the game server or tunnel.
 const AUDIO_BASE_URL = 'https://platypus-jambonz-bucket.s3.amazonaws.com/audio/battlefone';
+// Bump when regenerating clips: jambonz caches played URLs platform-side, so a
+// stale cache can serve old audio (heard 2026-08-24: old voice after regen).
+const AUDIO_VERSION = 3;
 
 function getAudioUrl(_game: GameState, filename: string): string | null {
   try {
     const filePath = path.join(AUDIO_DIR, filename);
     if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return null;
-    return `${AUDIO_BASE_URL}/${filename}`;
+    return `${AUDIO_BASE_URL}/${filename}?v=${AUDIO_VERSION}`;
   } catch {
     return null;
   }
