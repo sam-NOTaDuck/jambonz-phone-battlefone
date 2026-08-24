@@ -147,12 +147,12 @@ The app checks `data/audio/` for optional clips:
 | `win.mp3`     | Victory                                    | "You sank the entire enemy fleet! Victory! Thanks for playing BattleFone." |
 | `lose.mp3`    | Defeat                                     | "Your fleet has been destroyed. The enemy wins. Thanks for playing BattleFone." |
 
-**Audio serving choice (documented):** clips are served statically on the same port
-(3011) under `/audio/<filename>`. The play URL is derived from the `Host` header of
-the WebSocket upgrade request (`https` if the socket is TLS-encrypted, otherwise
-`http`), so the jambonz media server can fetch the file from
-`http(s)://<your-app-host>/audio/<filename>`. If a clip file is absent, the app
-falls back to the TTS phrasing above. With no clips present the game is fully TTS.
+**Audio hosting (2026-08-24):** clips are served from the public S3 bucket
+`platypus-jambonz-bucket` under `audio/battlefone/` — the same bucket as the alert
+and Call Snare greeting clips, so audio doesn't depend on the game server or the
+tunnel. The app keeps local copies in `data/audio/` as the presence gate: if a
+clip file exists locally, the matching S3 URL is played; if absent, the app falls
+back to the TTS phrasing above. With no clips present the game is fully TTS.
 
 **Regenerating the kit:** `tools/make-sfx.py` (pure numpy synthesis + ffmpeg)
 rebuilds all six clips — `python3 tools/make-sfx.py` with a numpy venv, then

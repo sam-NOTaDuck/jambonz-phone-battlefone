@@ -157,12 +157,15 @@ function computeAudioBase(req?: http.IncomingMessage): string | null {
   }
 }
 
-function getAudioUrl(game: GameState, filename: string): string | null {
+// Public bucket where all jambonz audio clips live (alert, Call Snare greetings,
+// BattleFone). Kept in S3 so audio doesn't depend on the game server or tunnel.
+const AUDIO_BASE_URL = 'https://platypus-jambonz-bucket.s3.amazonaws.com/audio/battlefone';
+
+function getAudioUrl(_game: GameState, filename: string): string | null {
   try {
-    if (!game.audioBase) return null;
     const filePath = path.join(AUDIO_DIR, filename);
     if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return null;
-    return `${game.audioBase}/audio/${filename}`;
+    return `${AUDIO_BASE_URL}/${filename}`;
   } catch {
     return null;
   }
