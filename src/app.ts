@@ -218,6 +218,7 @@ function speak(session: Session, game: GameState, text: string): Session {
     const url = getAudioUrl(game, `tts/${slug}.mp3`);
     if (url) return session.play({ url });
   }
+  console.warn(`[bf] TTS FALLBACK (no clip for phrase): ${text}`);
   return session.say({ text });
 }
 
@@ -228,6 +229,7 @@ function sayOrPlayOption(game: GameState, text: string): { say?: { text: string 
     const url = getAudioUrl(game, `tts/${slug}.mp3`);
     if (url) return { play: { url } };
   }
+  console.warn(`[bf] TTS FALLBACK (no clip for gather prompt): ${text}`);
   return { say: { text } };
 }
 
@@ -570,11 +572,15 @@ function handleFire(session: Session, game: GameState, evt: GatherEvent): void {
     speak(session, game, `Shot on ${spokenNumber(digit)}.`);
     pushPlayerResult(session, game, result);
     const enemyRemaining = fleetRemaining(game.enemyFleet);
-    speak(
-      session,
-      game,
-      `Enemy fleet: ${enemyRemaining} ${enemyRemaining === 1 ? 'ship' : 'ships'} remaining.`,
-    );
+    // Only announce the count while the game continues; at 0 the win
+    // announcement speaks for itself (and "0 ships" has no phrase-bank clip).
+    if (enemyRemaining > 0) {
+      speak(
+        session,
+        game,
+        `Enemy fleet: ${enemyRemaining} ${enemyRemaining === 1 ? 'ship' : 'ships'} remaining.`,
+      );
+    }
 
     if (enemyRemaining === 0) {
       finishGame(session, game, 'win');
