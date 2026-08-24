@@ -2,8 +2,9 @@
 """Generate the BattleFone narration phrase bank (TTS clips).
 
 Every phrase BattleFone speaks is finite, so we pre-generate ALL narration as
-audio clips (ElevenLabs Rachel, eleven_flash_v2_5) instead of live TTS.
-This eliminates the intermittent jambonz Google-TTS speed glitch entirely.
+audio clips (ElevenLabs Harry - Fierce Warrior, eleven_flash_v2_5) instead of
+live TTS. This eliminates the intermittent jambonz Google-TTS speed glitch
+entirely and gives the game a consistent announcer voice.
 
 Outputs: data/audio/tts/{slug}.mp3 (local presence gate) + uploads to S3
 audio/battlefone/tts/{slug}.mp3 (actual playback source).
@@ -14,7 +15,7 @@ import subprocess
 import urllib.request
 import urllib.error
 
-VOICE = "EXAVITQu4vr4xnSDxMaL"  # Rachel
+VOICE = "SOYHLrjzK2X1ezoPC6cr"  # Harry - Fierce Warrior (premade = free plan)
 MODEL = "eleven_flash_v2_5"
 API = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE}"
 
